@@ -88,6 +88,9 @@ function signToken(user) {
   if (!secret) {
     throw Object.assign(new Error('JWT secret not configured'), { status: 500, code: 'CONFIG_ERROR' });
   }
+  if (!user || !user.id || !user.email) {
+    throw Object.assign(new Error('Cannot sign token: missing user id/email'), { status: 500, code: 'AUTH_SIGN_ERROR' });
+  }
   return jwt.sign({ sub: user.id, email: user.email }, secret, { expiresIn: '7d' });
 }
 

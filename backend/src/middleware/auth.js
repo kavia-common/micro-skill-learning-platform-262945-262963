@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
  */
 function authMiddleware(req, res, next) {
   /** This is a public function that validates JWT token and attaches req.user. */
+  // Expect frontend to send standard bearer token:
+  // Authorization: Bearer <JWT>
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) {

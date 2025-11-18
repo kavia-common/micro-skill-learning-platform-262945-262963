@@ -17,12 +17,14 @@ const app = express();
 // Security headers
 app.use(helmet());
 
-// CORS (allow frontend)
-const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+ // CORS (allow frontend)
+const corsEnv = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const allowedOrigins = corsEnv.split(',').map(o => o.trim()).filter(Boolean);
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow server-to-server or tools without origin and the allowed origin
-    if (!origin || origin === allowedOrigin) {
+    // Allow server-to-server or tools without origin, and allow any in the configured list
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
