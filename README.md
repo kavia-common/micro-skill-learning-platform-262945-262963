@@ -9,10 +9,10 @@
 - Backend (Express):
   - Required envs (see `backend/.env.example`):
     - `PORT=3001`
-    - `CORS_ORIGIN=http://localhost:3000` (supports comma-separated list)
-    - `JWT_SECRET=<strong-random-value>`
+    - `CORS_ORIGIN=http://localhost:3000` (supports comma-separated list; must exactly match frontend origin)
+    - `JWT_SECRET=<strong-random-value>` (must be set; server should be restarted after changes)
     - `DATABASE_URL="file:./data/dev.db"` (SQLite default) and `DATABASE_PROVIDER=sqlite`
-  - CORS is configured with `credentials: true` and allows `Authorization` header.
+  - CORS is configured with `credentials: true`, allows `Authorization` header on preflight, and sets `Vary: Origin`.
 
 ## API client usage
 
