@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "node prisma/seed.js",
+    "db:setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed",
     "openapi:generate": "node generate_openapi.js"
   },
   "dependencies": {

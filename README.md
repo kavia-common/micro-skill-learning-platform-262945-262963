@@ -60,9 +60,16 @@ If the frontend shows "Authentication failed" or protected endpoints return 401:
 cd backend
 cp .env.example .env  # set SUPABASE_URL, JWT_SECRET, and CORS_ORIGIN
 npm install
-npx prisma generate
-npx prisma migrate dev --name init
+npm run db:setup      # runs prisma generate, migrate dev --name init, and seeds
 npm run dev
+```
+
+If you modify backend/prisma/schema.prisma later, regenerate and migrate:
+```
+cd backend
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed    # optional: reseed to refresh demo content
 ```
 
 2) Frontend:

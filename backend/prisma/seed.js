@@ -5,21 +5,29 @@
  * Inserts:
  * - 2 skills
  * - For each skill: 2 modules
- * - For each module: 3-5 videos with summary and 3 quiz questions with answers
+ * - For each module: 4–6 videos (30–90s) with summary and 3 quiz questions with answers
  *
  * Uses public sample video URLs and placeholder assets.
+ * Note: Unique constraints exist for (moduleId, order), (skillId, order),
+ *       (videoId, order) on questions, and (questionId, text) on answers.
  */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 async function upsertUser(email, name) {
-  const passwordHash = 'placeholder_hash'; // Do not use in production; replace with real hash when auth added
+  const passwordHash = 'placeholder_hash'; // Do not use in production
   return prisma.user.upsert({
     where: { email },
     update: {},
     create: { email, passwordHash, name },
   });
+}
+
+function boundedDuration(i) {
+  // Create 30–90s durations with a small pattern
+  const base = 35 + (i * 10);
+  return Math.max(30, Math.min(90, base));
 }
 
 function sampleVideoData(moduleId, index) {
@@ -28,23 +36,26 @@ function sampleVideoData(moduleId, index) {
     'Core Concept Deep Dive',
     'Hands-on Example',
     'Tips and Best Practices',
+    'Quick Demo Walkthrough',
     'Recap and Next Steps',
   ];
   const title = titles[index % titles.length];
   const order = index + 1;
 
-  // Using public sample video URLs
+  // Using public sample video URLs (small sample clips)
   const urlSamples = [
-    'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
     'https://sample-videos.com/video321/mp4/720/sample-5s.mp4',
     'https://filesamples.com/samples/video/mp4/sample_640x360.mp4',
+    'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
   ];
+
+  const durationSeconds = boundedDuration(index);
 
   return {
     moduleId,
     title: `${title}`,
     url: urlSamples[index % urlSamples.length],
-    durationSeconds: 60 + 15 * index,
+    durationSeconds,
     order,
     transcriptUrl: null,
     captionsUrl: null,
@@ -99,7 +110,6 @@ async function createModuleWithContent(skillId, baseTitle, moduleOrder, videoCou
     },
   });
 
-  const videos = [];
   for (let i = 0; i < videoCount; i += 1) {
     const v = await prisma.video.create({
       data: sampleVideoData(module.id, i),
@@ -116,7 +126,7 @@ async function createModuleWithContent(skillId, baseTitle, moduleOrder, videoCou
     // Create 3 questions with answers per video
     const questions = buildQuestionsForVideo(v.id);
     for (const q of questions) {
-      // Create question
+      // Create question (unique by videoId+order)
       const createdQ = await prisma.quizQuestion.create({
         data: {
           videoId: q.videoId,
@@ -125,7 +135,7 @@ async function createModuleWithContent(skillId, baseTitle, moduleOrder, videoCou
           multiSelect: q.multiSelect,
         },
       });
-      // Create answers
+      // Create answers (unique by questionId+text)
       for (const ans of q.answers) {
         await prisma.quizAnswer.create({
           data: {
@@ -136,11 +146,8 @@ async function createModuleWithContent(skillId, baseTitle, moduleOrder, videoCou
         });
       }
     }
-
-    videos.push(v);
   }
 
-  // Initialize progress totalVideos for a demo user later
   return module;
 }
 
@@ -150,7 +157,7 @@ async function main() {
   // Ensure at least one demo user exists (for progress/attempts)
   const demoUser = await upsertUser('demo.user@example.com', 'Demo User');
 
-  // Create Skills
+  // Create Skills (unique by name)
   const skillA = await prisma.skill.upsert({
     where: { id: 'skillA' },
     update: {},
@@ -171,12 +178,12 @@ async function main() {
     },
   });
 
-  // Modules for each skill
-  const modA1 = await createModuleWithContent(skillA.id, 'Time Management Essentials', 1, 3);
-  const modA2 = await createModuleWithContent(skillA.id, 'Focus and Deep Work', 2, 4);
+  // Modules for each skill (order unique per skill)
+  const modA1 = await createModuleWithContent(skillA.id, 'Time Management Essentials', 1, 4);
+  const modA2 = await createModuleWithContent(skillA.id, 'Focus and Deep Work', 2, 5);
 
-  const modB1 = await createModuleWithContent(skillB.id, 'HTML & CSS Quickstart', 1, 3);
-  const modB2 = await createModuleWithContent(skillB.id, 'JavaScript Fundamentals', 2, 5);
+  const modB1 = await createModuleWithContent(skillB.id, 'HTML & CSS Quickstart', 1, 4);
+  const modB2 = await createModuleWithContent(skillB.id, 'JavaScript Fundamentals', 2, 6);
 
   // Initialize progress for demo user for each module
   const modules = [modA1, modA2, modB1, modB2];
@@ -185,8 +192,8 @@ async function main() {
     await prisma.progress.upsert({
       where: {
         user_module_unique: {
-          userId: demoUser.id,
-          moduleId: m.id,
+        userId: demoUser.id,
+        moduleId: m.id,
         },
       },
       update: {

@@ -1,5 +1,12 @@
 //
+//
 // Prisma schema for Micro-Skill LMS
+//
+// Strengthened with additional indexes and constraints for content ordering,
+// uniqueness, and faster lookups.
+//
+// Note: Some validations (e.g., email lowercasing) should be enforced in app code;
+// here we add a normal index to support case-insensitive searches in Postgres later.
 //
 
 generator client {
@@ -25,6 +32,9 @@ model User {
 
   quizAttempts QuizAttempt[]
   progress     Progress[]
+
+  // Support queries by email quickly (esp. when migrating to Postgres with citext)
+  @@index([email])
 }
 
 model Skill {
@@ -33,6 +43,9 @@ model Skill {
   description String?
 
   modules     Module[]
+
+  // Prevent duplicate skill names (optional but useful)
+  @@unique([name])
 }
 
 model Module {
@@ -40,15 +53,18 @@ model Module {
   skillId     String
   title       String
   description String?
-  order       Int
-  isPublished Boolean  @default(false)
+  order       Int       // display order within a skill
+  isPublished Boolean   @default(false)
 
-  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  videos  Video[]
-  progress Progress[]
+  skill         Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  videos        Video[]
+  progress      Progress[]
   quizQuestions QuizQuestion[]
 
+  // Ensure a stable ordering within a skill
+  @@unique([skillId, order], name: "module_order_within_skill_unique")
   @@index([skillId])
+  @@index([isPublished])
 }
 
 model Video {
@@ -56,8 +72,8 @@ model Video {
   moduleId        String
   title           String
   url             String
-  durationSeconds Int
-  order           Int
+  durationSeconds Int      // expected 30-90s in our domain; validated by seed/app
+  order           Int      // display order within a module
   transcriptUrl   String?
   captionsUrl     String?
   thumbnailUrl    String?
@@ -68,7 +84,10 @@ model Video {
   quizQuestions QuizQuestion[]
   quizAttempts  QuizAttempt[]
 
+  // Ensure only one video per order within a module
+  @@unique([moduleId, order], name: "video_order_within_module_unique")
   @@index([moduleId])
+  @@index([createdAt])
 }
 
 model Summary {
@@ -93,6 +112,9 @@ model QuizQuestion {
   module  Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   answers QuizAnswer[]
 
+  // Ensure ordering uniqueness within a video or within a module when scoped that way
+  @@unique([videoId, order], map: "question_order_within_video_unique")
+  @@unique([moduleId, order], map: "question_order_within_module_unique")
   @@index([videoId])
   @@index([moduleId])
 }
@@ -105,19 +127,21 @@ model QuizAnswer {
 
   question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
+  // Avoid accidental duplicates for same question/answer text
+  @@unique([questionId, text], name: "answer_unique_per_question")
   @@index([questionId])
 }
 
 model QuizAttempt {
-  id         String   @id @default(cuid())
-  userId     String
-  videoId    String?
-  moduleId   String?
-  score      Int
-  total      Int
-  startedAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  videoId     String?
+  moduleId    String?
+  score       Int
+  total       Int
+  startedAt   DateTime @default(now())
   completedAt DateTime?
-  answers    Json
+  answers     Json
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   video  Video? @relation(fields: [videoId], references: [id], onDelete: SetNull)
@@ -126,14 +150,15 @@ model QuizAttempt {
   @@index([userId])
   @@index([videoId])
   @@index([moduleId])
+  @@index([completedAt])
 }
 
 model Progress {
-  id             String   @id @default(cuid())
-  userId         String
-  moduleId       String
-  completedVideos Int     @default(0)
-  totalVideos     Int     @default(0)
+  id              String   @id @default(cuid())
+  userId          String
+  moduleId        String
+  completedVideos Int      @default(0)
+  totalVideos     Int      @default(0)
   lastVideoId     String?
   updatedAt       DateTime @updatedAt
 
