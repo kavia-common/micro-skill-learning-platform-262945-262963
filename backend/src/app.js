@@ -5,6 +5,13 @@ const swaggerSpec = require('../swagger');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+/**
+ * Express application bootstrap with:
+ * - helmet for security headers
+ * - rate limiter
+ * - CORS allowing Authorization header from configured frontend origins
+ * - Swagger UI at /docs with dynamic servers
+ */
 const routes = require('./routes');
 const authRoutes = require('./routes/auth');
 const contentRoutes = require('./routes/content');

@@ -4,24 +4,39 @@ const { getPrisma } = require('../db/prisma');
 /**
  * PUBLIC_INTERFACE
  * getFeed
- * Returns a content feed (recent videos and modules).
+ * Returns a TikTok-style video feed list for the home screen.
+ * Shape: { items: Array<VideoItem>, nextCursor: string|null }
+ * - items: [{ id, title, url, durationSeconds, thumbnailUrl, moduleId, createdAt }]
+ * - nextCursor: string to request the next page; currently null (no pagination implemented yet).
  */
 async function getFeed(req, res, next) {
-  /** This is a public function that returns a basic content feed. */
+  /** This is a public function that returns a video-only feed consumable by the frontend. */
   try {
     const prisma = getPrisma();
+    // Optional basic cursor pagination support (opaque cursor = createdAt ISO string)
+    const take = Math.min(parseInt(req.query.limit || '10', 10) || 10, 50);
+    const after = req.query.after ? new Date(req.query.after) : null;
+
+    const where = after ? { createdAt: { lt: after } } : {};
     const videos = await prisma.video.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: { id: true, title: true, url: true, durationSeconds: true, thumbnailUrl: true, moduleId: true, createdAt: true },
+      take,
+      select: {
+        id: true,
+        title: true,
+        url: true,
+        durationSeconds: true,
+        thumbnailUrl: true,
+        moduleId: true,
+        createdAt: true,
+      },
     });
-    const modules = await prisma.module.findMany({
-      where: { isPublished: true },
-      orderBy: { order: 'asc' },
-      take: 10,
-      select: { id: true, title: true, description: true, order: true, skillId: true },
-    });
-    return res.json({ videos, modules });
+
+    // nextCursor is the createdAt of the last item, if more items may exist
+    const nextCursor = videos.length === take ? videos[videos.length - 1].createdAt.toISOString() : null;
+
+    return res.json({ items: videos, nextCursor });
   } catch (err) {
     return next(err);
   }

@@ -51,11 +51,30 @@ router.get('/module/:moduleId', supabaseOrLegacyAuth, getModuleProgress);
  * /api/progress/track:
  *   post:
  *     summary: Track progress update
+ *     description: |
+ *       Accepts a body with moduleId, optional videoId, and a boolean completed flag.
+ *       Increments or decrements the user's completedVideos within the module and updates lastVideoId.
  *     tags: [Progress]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [moduleId, completed]
+ *             properties:
+ *               moduleId:
+ *                 type: string
+ *                 description: The module being progressed
+ *               videoId:
+ *                 type: string
+ *                 nullable: true
+ *                 description: The video the user just completed or uncompleted
+ *               completed:
+ *                 type: boolean
+ *                 description: true to increment, false to decrement completion count
  *     responses:
  *       201:
  *         description: Progress tracked
