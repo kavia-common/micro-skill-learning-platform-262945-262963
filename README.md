@@ -24,12 +24,22 @@
   - `POST /api/auth/login` -> `{ user, token }`
   - `GET /api/auth/me` requires `Authorization` header.
 
+## Auth troubleshooting
+
+If the frontend shows "Authentication failed" or protected endpoints return 401:
+- Ensure backend `.env` has a strong `JWT_SECRET` set and the server restarted.
+- Confirm `CORS_ORIGIN` includes the exact frontend origin (e.g., `http://localhost:3000`). For multiple origins, use a comma-separated list.
+- Verify the frontend attaches the header `Authorization: Bearer <token>` to protected endpoints. In the provided API client, call `setTokenGetter(() => token)` in your AuthContext so axios injects the header.
+- You can quickly validate with:
+  - Register/Login: `POST /api/auth/register` or `POST /api/auth/login` -> should return `{ user, token }`
+  - Me: `GET /api/auth/me` with `Authorization: Bearer <token>` -> should return `{ user }`
+
 ## Local run
 
 1) Backend:
 ```
 cd backend
-cp .env.example .env  # then set JWT_SECRET
+cp .env.example .env  # then set JWT_SECRET and confirm CORS_ORIGIN
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
