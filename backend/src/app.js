@@ -29,6 +29,19 @@ app.use(cors({
     }
     return callback(new Error('Not allowed by CORS'));
   },
+  credentials: true, // only relevant if cookies are used; safe to leave enabled
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Explicitly handle preflight for all routes to ensure Authorization header is accepted
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

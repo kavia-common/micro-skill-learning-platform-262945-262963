@@ -7,6 +7,11 @@
   - `setTokenGetter(() => token)` to provide JWT from your AuthContext
   - `getDefaultApiClient()` to get an axios instance that auto-attaches `Authorization: Bearer <token>` when available
 
+Important:
+- Call `setTokenGetter(() => token)` on initial app mount (e.g., in AuthProvider) and whenever the token changes.
+- Persist the token (localStorage/sessionStorage) after login/register and restore it on app reload before making API calls.
+- On logout, clear storage and call `setTokenGetter(() => null)` (or set token to null) so requests stop sending Authorization.
+
 Example usage with an AuthContext:
 
 ```jsx
