@@ -34,6 +34,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Ensure proxies/CDNs vary by Origin and always allow Authorization header visibility
+app.use((req, res, next) => {
+  res.header('Vary', 'Origin');
+  // Some environments rely on this header even with cors() middleware
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
+
 // Explicitly handle preflight for all routes to ensure Authorization header is accepted
 app.options('*', cors({
   origin: (origin, callback) => {
