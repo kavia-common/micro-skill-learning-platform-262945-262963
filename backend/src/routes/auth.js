@@ -1,7 +1,8 @@
 'use strict';
 const express = require('express');
 const { register, login, me } = require('../controllers/auth');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth'); // legacy
+const { supabaseOrLegacyAuth } = require('../middleware/supabaseAuth');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const router = express.Router();
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new user (LEGACY - to be deprecated)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -42,7 +43,7 @@ router.post('/register', register);
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Login
+ *     summary: Login (LEGACY - to be deprecated)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -56,7 +57,7 @@ router.post('/login', login);
  * @swagger
  * /api/auth/me:
  *   get:
- *     summary: Get current user
+ *     summary: Get current user (accepts legacy or Supabase token during migration)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -64,6 +65,20 @@ router.post('/login', login);
  *       200:
  *         description: Current user
  */
-router.get('/me', authMiddleware, me);
+router.get('/me', supabaseOrLegacyAuth, me);
+
+/**
+ * @swagger
+ * /api/auth/supabase/me:
+ *   get:
+ *     summary: Get current user using Supabase JWT
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user by Supabase session
+ */
+router.get('/supabase/me', supabaseOrLegacyAuth, me);
 
 module.exports = router;

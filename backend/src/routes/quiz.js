@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { getVideoQuiz, submitAttempt } = require('../controllers/quiz');
-const { authMiddleware } = require('../middleware/auth');
+const { supabaseOrLegacyAuth } = require('../middleware/supabaseAuth');
 
 const router = express.Router();
 
@@ -44,6 +44,6 @@ router.get('/video/:videoId', getVideoQuiz);
  *       201:
  *         description: Attempt stored
  */
-router.post('/attempts', authMiddleware, submitAttempt);
+router.post('/attempts', supabaseOrLegacyAuth, submitAttempt);
 
 module.exports = router;

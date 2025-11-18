@@ -3,45 +3,62 @@
 ## Environment wiring
 
 - Frontend (React):
-  - Ensure `.env` contains `REACT_APP_API_BASE=http://localhost:3001` for local development.
-  - Optional mirrors: `REACT_APP_BACKEND_URL=http://localhost:3001`, `REACT_APP_FRONTEND_URL=http://localhost:3000`.
+  - Ensure `.env` contains:
+    - `REACT_APP_API_BASE=http://localhost:3001` for local development
+    - `REACT_APP_FRONTEND_URL=http://localhost:3000` (optional, used for Supabase email redirect)
+    - Supabase public vars:
+      - `REACT_APP_SUPABASE_URL=<your-supabase-url>`
+      - `REACT_APP_SUPABASE_KEY=<your-supabase-anon-key>`
 
 - Backend (Express):
   - Required envs (see `backend/.env.example`):
     - `PORT=3001`
     - `CORS_ORIGIN=http://localhost:3000` (supports comma-separated list; must exactly match frontend origin)
-    - `JWT_SECRET=<strong-random-value>` (must be set; server should be restarted after changes)
+    - `JWT_SECRET=<strong-random-value>` (kept for legacy tokens during migration)
     - `DATABASE_URL="file:./data/dev.db"` (SQLite default) and `DATABASE_PROVIDER=sqlite`
+    - `SUPABASE_URL=<your-supabase-url>` (used to fetch JWKS for JWT verification)
   - CORS is configured with `credentials: true`, allows `Authorization` header on preflight, and sets `Vary: Origin`.
 
 ## API client usage
 
 - Authenticated requests must include header:
-  - `Authorization: Bearer <JWT token>`
-- Public endpoints (feed/modules/video) do not require the header.
-- Auth endpoints:
-  - `POST /api/auth/register` -> `{ user, token }`
-  - `POST /api/auth/login` -> `{ user, token }`
-  - `GET /api/auth/me` requires `Authorization` header.
+  - `Authorization: Bearer <access token>`
+- With Supabase, the frontend automatically attaches the current session access token via an axios interceptor configured by `AuthContext` (`src/api/AuthContext.jsx`).
+
+- Auth endpoints (migration period):
+  - Supabase: `GET /api/auth/supabase/me` -> `{ user }` (Supabase or legacy token accepted)
+  - Legacy (temporary): 
+    - `POST /api/auth/register` -> `{ user, token }`
+    - `POST /api/auth/login` -> `{ user, token }`
+    - `GET /api/auth/me` -> `{ user }`
+
+## Supabase Auth Migration
+
+- Backend validates Supabase JWTs using JWKS from `${SUPABASE_URL}/auth/v1/keys`.
+- Middleware attempts Supabase verification first; if it fails, it falls back to legacy local JWTs (using `JWT_SECRET`) during a migration window.
+- On first Supabase user access, a local `User` row is upserted by email (no password stored for Supabase-managed users).
+- Protected routes (progress, quiz submission) rely on the new middleware and `req.user`.
+
+Legacy routes (`/api/auth/register`, `/api/auth/login`) continue to work during the migration window but are deprecated.
 
 ## Auth troubleshooting
 
 If the frontend shows "Authentication failed" or protected endpoints return 401:
-- Ensure backend `.env` has a strong `JWT_SECRET` set and the server restarted.
+- Ensure backend `.env` has `SUPABASE_URL` set and the server restarted.
 - Confirm `CORS_ORIGIN` includes the exact frontend origin (e.g., `http://localhost:3000`). For multiple origins, use a comma-separated list.
-- Verify the frontend attaches the header `Authorization: Bearer <token>` to protected endpoints. In the provided API client, call `setTokenGetter(() => token)` in your AuthContext so axios injects the header.
+- Verify the frontend attaches `Authorization: Bearer <access_token>` to protected endpoints (the interceptor should do this automatically once logged in).
 - CORS preflight: the backend accepts the `Authorization` header and sets `Vary: Origin`. If you use a proxy/CDN, ensure it forwards Origin and does not strip Authorization.
-- You can quickly validate with:
-  - Register/Login: `POST /api/auth/register` or `POST /api/auth/login` -> should return `{ user, token }`
-  - Me: `GET /api/auth/me` with `Authorization: Bearer <token>` -> should return `{ user }`
-  - Progress: `GET /api/progress` with `Authorization` -> should return `200` with your progress list.
+- Quick checks:
+  - Frontend: sign up/sign in via Supabase; then reload page to verify session persists.
+  - Backend: `GET /api/auth/supabase/me` with Authorization -> should return `{ user }`
+  - Progress: `GET /api/progress` with Authorization -> should return your progress list.
 
 ## Local run
 
 1) Backend:
 ```
 cd backend
-cp .env.example .env  # then set JWT_SECRET and confirm CORS_ORIGIN
+cp .env.example .env  # set SUPABASE_URL, JWT_SECRET, and CORS_ORIGIN
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
@@ -51,8 +68,9 @@ npm run dev
 2) Frontend:
 ```
 cd micro_skill_lms_frontend
-cp .env.example .env
+cp .env.example .env   # set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY
 npm install
+npm install @supabase/supabase-js
 npm start
 ```
 

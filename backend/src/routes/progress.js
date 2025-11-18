@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const { getSummary, getModuleProgress, trackProgress } = require('../controllers/progress');
-const { authMiddleware } = require('../middleware/auth');
+const { supabaseOrLegacyAuth } = require('../middleware/supabaseAuth');
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ const router = express.Router();
  *       200:
  *         description: Progress summary
  */
-router.get('/', authMiddleware, getSummary);
+router.get('/', supabaseOrLegacyAuth, getSummary);
 
 /**
  * @swagger
@@ -44,7 +44,7 @@ router.get('/', authMiddleware, getSummary);
  *       200:
  *         description: Module progress
  */
-router.get('/module/:moduleId', authMiddleware, getModuleProgress);
+router.get('/module/:moduleId', supabaseOrLegacyAuth, getModuleProgress);
 
 /**
  * @swagger
@@ -60,6 +60,6 @@ router.get('/module/:moduleId', authMiddleware, getModuleProgress);
  *       201:
  *         description: Progress tracked
  */
-router.post('/track', authMiddleware, trackProgress);
+router.post('/track', supabaseOrLegacyAuth, trackProgress);
 
 module.exports = router;
