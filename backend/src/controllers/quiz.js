@@ -20,7 +20,8 @@ async function getVideoQuiz(req, res, next) {
         text: true,
         order: true,
         multiSelect: true,
-        answers: { select: { id: true, text: true } }, // do not expose correctness
+        // expose only id/text of answers; correctness not included for security
+        answers: { select: { id: true, text: true } },
       },
     });
     if (!questions || questions.length === 0) {
@@ -47,12 +48,44 @@ async function submitAttempt(req, res, next) {
     const prisma = getPrisma();
     const { videoId, moduleId, answers } = req.body;
 
-    // Gather correct answers for provided questions
+    // Gather questions ensuring they belong to the provided context (video or module)
     const questionIds = answers.map(a => a.questionId);
     const questions = await prisma.quizQuestion.findMany({
-      where: { id: { in: questionIds } },
+      where: {
+        id: { in: questionIds },
+        ...(videoId ? { videoId } : {}),
+        ...(moduleId ? {
+          video: { moduleId },
+        } : {}),
+      },
       include: { answers: true },
     });
+
+    // Validate that all submitted questions were found and belong to the context
+    if (questions.length !== questionIds.length) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'One or more questionIds are invalid for the provided context.' },
+      });
+    }
+
+    // Validate each selected answer id exists for its question
+    const answerMap = new Map(answers.map(a => [a.questionId, new Set(a.selectedAnswerIds)]));
+    for (const q of questions) {
+      const selected = answerMap.get(q.id);
+      if (!selected) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: `Missing answers for question ${q.id}` },
+        });
+      }
+      const validAnswerIds = new Set(q.answers.map(a => a.id));
+      for (const sel of selected) {
+        if (!validAnswerIds.has(sel)) {
+          return res.status(400).json({
+            error: { code: 'VALIDATION_ERROR', message: `Invalid answer selected for question ${q.id}` },
+          });
+        }
+      }
+    }
 
     // Score calculation
     let score = 0;
